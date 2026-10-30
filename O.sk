@@ -1,0 +1,135 @@
+```vb
+options:
+    prefix: &8[&bEasyMessages&8] &r
+    first-join: &6Welcome &e%player% &6to the server for the first time!
+    join: &a+ &f%player% joined the server!
+    quit: &c- &f%player% left the server!
+    death: &c%victim% died!
+    spawn-wait: &aTeleporting to spawn in &e5 seconds&a. Don't move!
+    spawn-success: &aTeleported to spawn!
+    spawn-cancel: &cTeleport cancelled because you moved or took damage!
+    spawn-not-set: &cNo spawn has been set for this world!
+    spawn-set: &aSpawn location set successfully!
+    firstspawn-set: &aFirst-join spawn set successfully!
+    no-permission: &cYou don't have permission to do that!
+
+# ==========================================
+# JOIN AND FIRST-JOIN MESSAGES
+# ==========================================
+
+on join:
+    if player has played before:
+        set join message to "{@join}"
+    else:
+        set join message to "{@first-join}"
+        if {em.firstspawn} is set:
+            teleport player to {em.firstspawn}
+
+# ==========================================
+# LEAVE MESSAGE
+# ==========================================
+
+on quit:
+    set quit message to "{@quit}"
+
+# ==========================================
+# DEATH AND PLAYER KILL MESSAGES
+# ==========================================
+
+on death of player:
+    set death message to "{@death}"
+    if attacker is a player:
+        set death message to "&e%name of attacker% &7killed &c%victim%&7!"
+
+# ==========================================
+# PER-WORLD SPAWN
+# ==========================================
+
+command /setspawn:
+    permission: easymessages.setspawn
+    permission message: "{@prefix}{@no-permission}"
+    executable by: players
+    trigger:
+        set {em.spawn::%name of world of player%} to location of player
+        send "{@prefix}{@spawn-set}" to player
+
+# ==========================================
+# FIRST-JOIN SPAWN
+# Set this in your dedicated spawn world.
+# ==========================================
+
+command /setfirstspawn:
+    permission: easymessages.setspawn
+    permission message: "{@prefix}{@no-permission}"
+    executable by: players
+    trigger:
+        set {em.firstspawn} to location of player
+        send "{@prefix}{@firstspawn-set}" to player
+
+# ==========================================
+# SPAWN COMMAND WITH 5-SECOND DELAY
+# ==========================================
+
+command /spawn:
+    permission: easymessages.spawn
+    permission message: "{@prefix}{@no-permission}"
+    trigger:
+        set {_world} to name of world of player
+
+        if {em.spawn::%{_world}%} is not set:
+            send "{@prefix}{@spawn-not-set}" to player
+            stop
+
+        if {em.teleporting::%uuid of player%} is set:
+            send "{@prefix}&cYou already have a teleport pending!" to player
+            stop
+
+        set {em.teleporting::%uuid of player%} to true
+        set {em.start::%uuid of player%} to location of player
+
+        send "{@prefix}{@spawn-wait}" to player
+
+        wait 5 seconds
+
+        if {em.teleporting::%uuid of player%} is not set:
+            stop
+
+        if world of player is not world of {em.start::%uuid of player%}:
+            delete {em.teleporting::%uuid of player%}
+            delete {em.start::%uuid of player%}
+            send "{@prefix}{@spawn-cancel}" to player
+            stop
+
+        if distance between location of player and {em.start::%uuid of player%} > 0.2:
+            delete {em.teleporting::%uuid of player%}
+            delete {em.start::%uuid of player%}
+            send "{@prefix}{@spawn-cancel}" to player
+            stop
+
+        teleport player to {em.spawn::%{_world}%}
+
+        delete {em.teleporting::%uuid of player%}
+        delete {em.start::%uuid of player%}
+
+        send "{@prefix}{@spawn-success}" to player
+
+# ==========================================
+# CANCEL TELEPORT WHEN PLAYER TAKES DAMAGE
+# ==========================================
+
+on damage of player:
+    if {em.teleporting::%uuid of victim%} is set:
+        delete {em.teleporting::%uuid of victim%}
+        delete {em.start::%uuid of victim%}
+        send "{@prefix}{@spawn-cancel}" to victim
+
+# ==========================================
+# RESPAWN HANDLING
+# ==========================================
+
+on respawn:
+    set {_world} to name of world of event-location
+
+    if {em.spawn::%{_world}%} is set:
+        set respawn location to {em.spawn::%{_world}%}
+```
